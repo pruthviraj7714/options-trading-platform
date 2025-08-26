@@ -1,0 +1,1 @@
+export const BATCH_UPLOADER_STREAM = process.env.BATCH_UPLOADER_STREAM!;
