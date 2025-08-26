@@ -45,11 +45,9 @@ const createConsumerGroup = async () => {
 };
 
 const processOrders = async (orders: IOrder[]) => {
-  console.log(orders);
-  
   await Promise.all(
     orders.map(async (o) => {
-      await prisma.order.create({
+      await prisma.trade.create({
         data: {
           price: new Decimal(o.price.toString()), 
           symbol: o.symbol,
