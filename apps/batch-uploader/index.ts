@@ -3,7 +3,7 @@ import { BATCH_UPLOADER_STREAM, CONSUMER_NAME, GROUP_NAME } from "./config";
 import prisma from "@repo/db";
 import { Decimal } from "@prisma/client/runtime/library";
 
-interface IOrder {
+interface ITrade {
   streamId: string;
   symbol: string;
   price: number;
@@ -44,40 +44,26 @@ const createConsumerGroup = async () => {
   }
 };
 
-const processOrders = async (orders: IOrder[]) => {
+const processTrades = async (trades: ITrade[]) => {
+  await prisma.trade.createMany({
+    data: trades.map((t) => ({
+      price: new Decimal(t.price.toString()),
+      timestamp: new Date(t.timestamp),
+      symbol: t.symbol,
+    })),
+  });
   await Promise.all(
-    orders.map(async (o) => {
-      await prisma.trade.create({
-        data: {
-          price: new Decimal(o.price.toString()), 
-          symbol: o.symbol,
-          timestamp: new Date(o.timestamp),
-        },
-      });
-      await redisclient.xack(BATCH_UPLOADER_STREAM, GROUP_NAME, o.streamId);
-    })
+    trades.map((trade) =>
+      redisclient.xack(BATCH_UPLOADER_STREAM, GROUP_NAME, trade.streamId)
+    )
   );
 };
 
 async function main() {
   await createConsumerGroup();
 
-  const prevOrders = await redisclient.xreadgroup(
-    "GROUP",
-    GROUP_NAME,
-    CONSUMER_NAME,
-    "STREAMS",
-    BATCH_UPLOADER_STREAM,
-    "0"
-  );
-
-  if (prevOrders) {
-    const data = parseStreamData(prevOrders);
-    processOrders(data as IOrder[]);
-  }
-
   while (true) {
-    const incomingOrders = await redisclient.xreadgroup(
+    const messages = await redisclient.xreadgroup(
       "GROUP",
       GROUP_NAME,
       CONSUMER_NAME,
@@ -86,12 +72,12 @@ async function main() {
       ">"
     );
 
-    if (incomingOrders) {
-      const data = parseStreamData(incomingOrders)
-      processOrders(data as IOrder[]);
+    if (messages) {
+      const data = parseStreamData(messages);
+      await processTrades(data as ITrade[]);
     }
 
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 1000));
   }
 }
 

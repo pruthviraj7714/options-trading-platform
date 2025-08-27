@@ -3,6 +3,8 @@ import { BATCH_UPLOADER_STREAM } from "./config";
 
 const SUPPORTED_PAIRS = ["btcusdt", "solusdt", "ethusdt"];
 
+const publisher = redisClient.duplicate();
+
 async function main() {
   const ws = new WebSocket("wss://stream.binance.com:9443/ws");
 
@@ -17,7 +19,7 @@ async function main() {
     );
   };
 
-  ws.onmessage = async ({ data }) => {
+  ws.onmessage = ({ data }) => {
     try {
       const payload = JSON.parse(data.toString());
 
@@ -29,12 +31,12 @@ async function main() {
         symbol: payload.s,
       };
 
-      await redisClient.publish(
+      publisher.publish(
         `market:${payload.s}`,
         JSON.stringify(priceData)
       );
-
-      await redisClient.xadd(
+      
+      redisClient.xadd(
         BATCH_UPLOADER_STREAM,
         "*",
         "data",
