@@ -18,33 +18,33 @@ model User {
   id       String     @id @default(uuid())
   username String     @unique
   password String
-  balance  Int
+  balance  Int        @default(0)
   Position Position[]
 }
 
 model Trade {
-  id        String   @id @default(uuid())
+  id        String   @default(uuid())
   price     Decimal  @db.Decimal(20, 8)
   symbol    String
   timestamp DateTime @db.Timestamptz(6)
 
-  @@unique([id, timestamp])
+  @@id([id, timestamp])
   @@index([symbol, timestamp])
 }
 
 model Position {
-  id           String         @id @default(uuid())
-  volume       Decimal
-  type         SIDE
-  userId       String
-  openPrice    Decimal
-  closePrice   Decimal
-  profitLoss   Decimal
-  status       PositionStatus
-  symbol       String
-  opendAt      DateTime       @default(now())
-  closedAt     DateTime       @default(now())
-  leverage Int    @default(2)
+  id         String         @id @default(uuid())
+  volume     Decimal
+  type       SIDE
+  userId     String
+  openPrice  Decimal
+  closePrice Decimal
+  profitLoss Decimal
+  status     PositionStatus
+  symbol     String
+  opendAt    DateTime       @default(now())
+  closedAt   DateTime       @default(now())
+  leverage   Int            @default(2)
 
   user User @relation(fields: [userId], references: [id])
 }
