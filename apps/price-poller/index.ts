@@ -31,17 +31,25 @@ async function main() {
         symbol: payload.s,
       };
 
-      publisher.publish(
-        `market:${payload.s}`,
-        JSON.stringify(priceData)
-      );
-      
+      const buyPrice = priceData.price + priceData.price * 0.005;
+      const sellPrice = priceData.price - priceData.price * 0.005;
+
+      let prices = {
+        buyPrice,
+        sellPrice,
+        symbol: priceData.symbol,
+      };
+
+      publisher.publish(`market:${payload.s}`, JSON.stringify(prices));
+
       redisClient.xadd(
         BATCH_UPLOADER_STREAM,
         "*",
         "data",
         JSON.stringify(priceData)
       );
+
+      redisClient.set(`price:${payload.s}`, priceData.price);
     } catch (error) {
       console.error(error);
     }
