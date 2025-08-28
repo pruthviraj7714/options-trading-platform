@@ -37,6 +37,7 @@ authRouter.post("/register", async (req, res) => {
       data: {
         username,
         password,
+        balance : 0
       },
     });
 
@@ -87,7 +88,7 @@ authRouter.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       {
-        id: existingUser.id,
+        sub: existingUser.id,
       },
       JWT_SECRET
     );

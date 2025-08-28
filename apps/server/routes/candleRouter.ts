@@ -25,7 +25,7 @@ const getIntervalDuration = (interval: string): string => {
 candleRouter.get("/", async (req, res) => {
   try {
     const { symbol, interval } = req.query;
-
+ 
     if (!symbol || !interval) {
       return res.status(400).json({
         message: "Invalid Query: symbol and interval are required",
@@ -35,7 +35,7 @@ candleRouter.get("/", async (req, res) => {
     const intervalDuration = getIntervalDuration(interval as string);
 
     const end = new Date();
-    const start = new Date(end.getTime() - 360 * 60 * 1000);
+    const start = new Date(end.getTime() - 60 * 60 * 1000);
 
     const candles = await prisma.$queryRaw`
       SELECT
