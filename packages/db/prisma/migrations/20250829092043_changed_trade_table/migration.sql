@@ -1,0 +1,19 @@
+/*
+  Warnings:
+
+  - The primary key for the `Trade` table will be changed. If it partially fails, the table could be left without primary key constraint.
+  - The `id` column on the `Trade` table would be dropped and recreated. This will lead to data loss if there is data in the column.
+  - You are about to alter the column `price` on the `Trade` table. The data in that column could be lost. The data in that column will be cast from `Decimal(20,8)` to `BigInt`.
+  - Added the required column `decimals` to the `Trade` table without a default value. This is not possible if the table is not empty.
+
+*/
+-- DropIndex
+DROP INDEX "public"."Trade_symbol_timestamp_idx";
+
+-- AlterTable
+ALTER TABLE "public"."Trade" DROP CONSTRAINT "Trade_pkey",
+ADD COLUMN     "decimals" SMALLINT NOT NULL,
+DROP COLUMN "id",
+ADD COLUMN     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+ALTER COLUMN "price" SET DATA TYPE BIGINT,
+ADD CONSTRAINT "Trade_pkey" PRIMARY KEY ("id");

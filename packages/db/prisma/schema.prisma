@@ -23,13 +23,13 @@ model User {
 }
 
 model Trade {
-  id        String   @default(uuid())
-  price     Decimal  @db.Decimal(20, 8)
-  symbol    String
+  id       String   @default(uuid()) 
+  symbol   String
+  price    BigInt
+  decimals Int      @db.SmallInt
   timestamp DateTime @db.Timestamptz(6)
 
-  @@id([id, timestamp])
-  @@index([symbol, timestamp])
+  @@unique([timestamp, id])
 }
 
 model Position {
