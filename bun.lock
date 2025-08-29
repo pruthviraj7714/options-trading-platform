@@ -57,6 +57,7 @@
     "apps/price-poller": {
       "name": "price-poller",
       "devDependencies": {
+        "@repo/common": "*",
         "@repo/redisclient": "*",
         "@types/bun": "latest",
       },

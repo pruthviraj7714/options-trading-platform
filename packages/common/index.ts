@@ -19,3 +19,25 @@ export const OrderSchema = z.object({
   asset : z.string(),
   side : z.enum(["BUY", "SELL"]),
 })
+
+
+export const SUPPORTED_MARKETS = [
+  {
+    symbol: "BTCUSDT",
+    name: "Bitcoin",
+    logo: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png",
+    color: "#F7931A",
+  },
+  {
+    symbol: "ETHUSDT",
+    name: "Ethereum",
+    logo: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+    color: "#627EEA",
+  },
+  {
+    symbol: "SOLUSDT",
+    name: "Solana",
+    logo: "https://assets.coingecko.com/coins/images/4128/small/solana.png",
+    color: "#9945FF",
+  },
+];

@@ -1,7 +1,6 @@
 import redisClient from "@repo/redisclient";
 import { BATCH_UPLOADER_STREAM } from "./config";
-
-const SUPPORTED_PAIRS = ["btcusdt", "solusdt", "ethusdt"];
+import {SUPPORTED_MARKETS } from "@repo/common"
 
 const publisher = redisClient.duplicate();
 
@@ -13,7 +12,7 @@ async function main() {
     ws.send(
       JSON.stringify({
         method: "SUBSCRIBE",
-        params: SUPPORTED_PAIRS.map((p) => `${p}@trade`),
+        params: SUPPORTED_MARKETS.map((m) => `${m.symbol.toLowerCase()}@trade`),
         id: 1,
       })
     );
@@ -22,7 +21,7 @@ async function main() {
   ws.onmessage = ({ data }) => {
     try {
       const payload = JSON.parse(data.toString());
-
+      
       if (!payload.p || !payload.T || !payload.s) return;
 
       let priceData = {
@@ -30,17 +29,19 @@ async function main() {
         timestamp: payload.T,
         symbol: payload.s,
       };
-
-      const buyPrice = priceData.price + priceData.price * 0.005;
-      const sellPrice = priceData.price - priceData.price * 0.005;
-
+      
+      const buyPrice = parseFloat(priceData.price) + parseFloat(priceData.price) * 0.005;
+      const sellPrice = parseFloat(priceData.price) - parseFloat(priceData.price) * 0.005;
+      
       let prices = {
         buyPrice,
         sellPrice,
         symbol: priceData.symbol,
+        price : payload.p,
+        timestamp: payload.T,
       };
 
-      publisher.publish(`market:${payload.s}`, JSON.stringify(prices));
+      publisher.publish(payload.s, JSON.stringify(prices));
 
       redisClient.xadd(
         BATCH_UPLOADER_STREAM,

@@ -1,7 +1,6 @@
 import redisclient from "@repo/redisclient";
 import { BATCH_UPLOADER_STREAM, CONSUMER_NAME, GROUP_NAME } from "./config";
 import prisma from "@repo/db";
-import { Decimal } from "@prisma/client/runtime/library";
 
 interface ITrade {
   streamId: string;
@@ -9,6 +8,8 @@ interface ITrade {
   price: number;
   timestamp: number;
 }
+
+const MAX_BATCH_SIZE = 100;
 
 function parseStreamData(streams: any[]) {
   const results: any[] = [];
@@ -46,11 +47,23 @@ const createConsumerGroup = async () => {
 
 const processTrades = async (trades: ITrade[]) => {
   await prisma.trade.createMany({
-    data: trades.map((t) => ({
-      price: new Decimal(t.price.toString()),
-      timestamp: new Date(t.timestamp),
-      symbol: t.symbol,
-    })),
+    data: trades.map((t) => {
+      const decimalsMap: Record<string, number> = {
+        BTCUSDT: 2,
+        ETHUSDT: 2,
+        SOLUSDT: 6,
+      };
+
+      const decimals = decimalsMap[t.symbol] ?? 6;
+      const scaledPrice = BigInt(Math.round(Number(t.price) * 10 ** decimals));
+
+      return {
+        price: scaledPrice,
+        decimals,
+        timestamp: new Date(t.timestamp),
+        symbol: t.symbol,
+      };
+    }),
   });
   await Promise.all(
     trades.map((trade) =>
@@ -62,22 +75,53 @@ const processTrades = async (trades: ITrade[]) => {
 async function main() {
   await createConsumerGroup();
 
-  while (true) {
-    const messages = await redisclient.xreadgroup(
-      "GROUP",
-      GROUP_NAME,
-      CONSUMER_NAME,
-      "STREAMS",
-      BATCH_UPLOADER_STREAM,
-      ">"
-    );
+  let batch: ITrade[] = [];
+  let batchTimeout: NodeJS.Timeout | null = null;
 
-    if (messages) {
-      const data = parseStreamData(messages);
-      await processTrades(data as ITrade[]);
+  const flushBatch = async () => {
+    if (batch.length > 0) {
+      await processTrades([...batch]);
+      batch = [];
     }
 
-    await new Promise((r) => setTimeout(r, 1000));
+    if (batchTimeout) {
+      clearTimeout(batchTimeout);
+      batchTimeout = null;
+    }
+  };
+
+  const startBatchTimer = () => {
+    if (batchTimeout) clearTimeout(batchTimeout);
+    batchTimeout = setTimeout(async () => await flushBatch(), 5000);
+  };
+
+  while (true) {
+    try {
+      const messages = await redisclient.xreadgroup(
+        "GROUP",
+        GROUP_NAME,
+        CONSUMER_NAME,
+        "STREAMS",
+        BATCH_UPLOADER_STREAM,
+        ">"
+      );
+
+      if (messages) {
+        const data = parseStreamData(messages);
+        batch.push(...data);
+
+        if (batch.length === data.length) {
+          startBatchTimer();
+        }
+
+        if (batch.length >= MAX_BATCH_SIZE) {
+          await flushBatch();
+        }
+      }
+    } catch (error) {
+      console.error("Error in batch processing loop:", error);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
   }
 }
 

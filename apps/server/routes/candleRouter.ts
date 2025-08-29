@@ -3,20 +3,20 @@ import { Router } from "express";
 
 const candleRouter = Router();
 
-const getIntervalDuration = (interval: string): string => {
+const getCandleView = (interval: string): string => {
   switch (interval) {
     case "1m":
-      return "1 minute";
+      return "candle_1m";
     case "5m":
-      return "5 minutes";
+      return "candle_5m";
     case "15m":
-      return "15 minutes";
+      return "candle_15m";
     case "1h":
-      return "1 hour";
+      return "candle_1h";
     case "4h":
-      return "4 hours";
+      return "candle_4h";
     case "1d":
-      return "1 day";
+      return "candle_1d";
     default:
       throw new Error("Invalid interval");
   }
@@ -25,34 +25,41 @@ const getIntervalDuration = (interval: string): string => {
 candleRouter.get("/", async (req, res) => {
   try {
     const { symbol, interval } = req.query;
- 
+
     if (!symbol || !interval) {
       return res.status(400).json({
         message: "Invalid Query: symbol and interval are required",
       });
     }
 
-    const intervalDuration = getIntervalDuration(interval as string);
+    const viewName = getCandleView(interval as string);
 
     const end = new Date();
     const start = new Date(end.getTime() - 60 * 60 * 1000);
 
-    const candles = await prisma.$queryRaw`
-      SELECT
-        time_bucket_gapfill(${intervalDuration}::interval, timestamp) AS bucket,
-        symbol,
-        CAST(first(price, timestamp) AS DOUBLE PRECISION) AS open,
-        CAST(max(price) AS DOUBLE PRECISION) AS high,
-        CAST(min(price) AS DOUBLE PRECISION) AS low,
-        CAST(last(price, timestamp) AS DOUBLE PRECISION) AS close,
-        CAST(count(*) AS INTEGER) as trades
-      FROM "Trade"
-      WHERE symbol = ${symbol} AND timestamp >= ${start}::timestamptz AND timestamp <= ${end}::timestamptz
-      GROUP BY bucket, symbol
+    const candles : any = await prisma.$queryRawUnsafe(
+      `
+      SELECT bucket, symbol, open, high, low, close
+      FROM "${viewName}"
+      WHERE symbol = $1
+        AND bucket >= $2::timestamptz
+        AND bucket <= $3::timestamptz
       ORDER BY bucket ASC;
-    `;
+      `,
+      symbol,
+      start,
+      end
+    );
 
-    res.status(200).json(candles);
+    const decimals = 6; 
+    const formattedCandles = candles.map((c: any) => ({
+      ...c,
+      open: Number(c.open) / 10 ** decimals,
+      high: Number(c.high) / 10 ** decimals,
+      low: Number(c.low) / 10 ** decimals,
+      close: Number(c.close) / 10 ** decimals,
+    }));
+    res.status(200).json(formattedCandles);
   } catch (error) {
     console.error(error);
     res.status(500).json({
