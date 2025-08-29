@@ -1,12 +1,12 @@
 import { WS_URL } from "@/app/config";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-const useSocket = (asset: string) => {
+const useSocket = (market?: string) => {
   const [isConnected, setIsConnected] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>();
 
   useEffect(() => {
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(market ? `${WS_URL}?market=${market}` : WS_URL);
 
     ws.onopen = () => {
       setIsConnected(true);
@@ -21,7 +21,7 @@ const useSocket = (asset: string) => {
       setSocket(null);
       setIsConnected(false);
     };
-  }, [asset]);
+  }, [market]);
 
   return {
     socket,
