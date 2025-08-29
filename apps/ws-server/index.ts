@@ -1,73 +1,81 @@
 import WebSocket, { WebSocketServer } from "ws";
 import redisClient from "@repo/redisclient";
-import { SUPPORTED_PAIRS } from "./constants";
+import { SUPPORTED_MARKETS } from "@repo/common";
+
+interface IPriceData {
+  buyPrice: number;
+  sellPrice: number;
+  symbol: string;
+  price: number;
+  timestamp: number;
+}
 
 const wss = new WebSocketServer({ port: 8080 });
 
 const marketsMap: Map<string, WebSocket[]> = new Map();
+const latestPrices: Map<string, IPriceData> = new Map();
 
-const broadcastToAllClientsByMarket = (asset: string, message: any) => {
-  marketsMap.get(asset)?.forEach((client) => {
-    client.send(JSON.stringify(message));
+const broadcastToAllClients = (message: any) => {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
   });
 };
 
-const getOrCreateMarketMap = (asset: string) => {
-  if (marketsMap.has(asset)) {
-    return marketsMap.get(asset);
+const getOrCreateMarketMap = (market: string) => {
+  if (marketsMap.has(market)) {
+    return marketsMap.get(market);
   }
 
-  marketsMap.set(asset, []);
+  marketsMap.set(market, []);
 
-  return marketsMap.get(asset);
+  return marketsMap.get(market);
 };
 
 const subscriber = redisClient.duplicate();
 
-for (const pair of SUPPORTED_PAIRS) {
-  subscriber.subscribe(pair, (err, count) => {
+for (const pair of SUPPORTED_MARKETS) {
+  subscriber.subscribe(pair.symbol, (err, count) => {
     if (err) {
       console.error("Failed to subscribe:", err);
     } else {
-      console.log(`Subscribed to ${pair} (${count} channel(s) total)`);
+      console.log(`Subscribed to ${pair.name} (${count} channel(s) total)`);
     }
   });
 }
 
+subscriber.on("message", (channel, message) => {
+  const priceData = JSON.parse(message);
+  const allPrices: Record<string, IPriceData> = {};
+
+  latestPrices.set(channel, priceData);
+
+  for (const pair of SUPPORTED_MARKETS) {
+    const priceData = latestPrices.get(pair.symbol)!;
+    if (priceData) {
+      allPrices[pair.symbol] = priceData;
+    }
+  }
+
+  broadcastToAllClients({
+    type: "PRICE_UPDATE",
+    data: priceData,
+  });
+});
+
 wss.on("connection", async (ws, req) => {
   const url = req.url;
 
-  const asset = url?.split("?asset=")[1];
+  const symbol = url?.split("?market=")[1];
 
-  if (asset) {
-    const market = getOrCreateMarketMap(asset);
+  if (symbol) {
+    const market = getOrCreateMarketMap(symbol);
     market?.push(ws);
   }
 
-  subscriber.on("message", (channel, message) => {
-    const priceData = JSON.parse(message);
-
-    broadcastToAllClientsByMarket(channel, {
-      type: "PRICE_UPDATE",
-      data: priceData,
-    });
-  });
-
   ws.on("message", (data) => {
     const payload = JSON.parse(data.toString());
-
-    // switch (payload.type) {
-    //   case "NEW_ORDER": {
-    //     const order = payload.order;
-    //     openPositions[payload.userId] = openPositions[payload.userId] || [];
-    //     openPositions[payload.userId]?.push(order);
-    //     break;
-    //   }
-    //   case "CANCEL_ORDER": {
-    //     //TODO : cancel order
-    //     break;
-    //   }
-    // }
   });
 
   ws.on("close", () => {});
