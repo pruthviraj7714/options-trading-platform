@@ -8,6 +8,7 @@ interface IPriceData {
   symbol: string;
   price: number;
   timestamp: number;
+  decimal : number;
 }
 
 const wss = new WebSocketServer({ port: 8080 });

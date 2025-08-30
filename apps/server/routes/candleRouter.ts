@@ -1,3 +1,4 @@
+import { DecimalsMap } from "@repo/common";
 import prisma from "@repo/db";
 import { Router } from "express";
 
@@ -27,9 +28,10 @@ candleRouter.get("/", async (req, res) => {
     const { symbol, interval } = req.query;
 
     if (!symbol || !interval) {
-      return res.status(400).json({
+      res.status(400).json({
         message: "Invalid Query: symbol and interval are required",
       });
+      return;
     }
 
     const viewName = getCandleView(interval as string);
@@ -51,13 +53,16 @@ candleRouter.get("/", async (req, res) => {
       end
     );
 
-    const decimals = 6; 
+    const base = (symbol as string).toUpperCase().replace(/USDT|BUSD|USDC$/, "");
+    const decimals = DecimalsMap[base] ?? DecimalsMap.DEFAULT;
+
     const formattedCandles = candles.map((c: any) => ({
       ...c,
-      open: Number(c.open) / 10 ** decimals,
-      high: Number(c.high) / 10 ** decimals,
-      low: Number(c.low) / 10 ** decimals,
-      close: Number(c.close) / 10 ** decimals,
+      open: Number(c.open),
+      high: Number(c.high),
+      low: Number(c.low),
+      close: Number(c.close),
+      decimal : decimals
     }));
     res.status(200).json(formattedCandles);
   } catch (error) {

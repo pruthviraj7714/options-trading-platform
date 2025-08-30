@@ -1,6 +1,7 @@
 import redisclient from "@repo/redisclient";
 import { BATCH_UPLOADER_STREAM, CONSUMER_NAME, GROUP_NAME } from "./config";
 import prisma from "@repo/db";
+import { DecimalsMap } from "@repo/common"
 
 interface ITrade {
   streamId: string;
@@ -48,13 +49,7 @@ const createConsumerGroup = async () => {
 const processTrades = async (trades: ITrade[]) => {
   await prisma.trade.createMany({
     data: trades.map((t) => {
-      const decimalsMap: Record<string, number> = {
-        BTCUSDT: 2,
-        ETHUSDT: 2,
-        SOLUSDT: 6,
-      };
-
-      const decimals = decimalsMap[t.symbol] ?? 6;
+      const decimals = DecimalsMap[t.symbol.slice(0, -4)] ?? 6;
       const scaledPrice = BigInt(Math.round(Number(t.price) * 10 ** decimals));
 
       return {

@@ -1,6 +1,6 @@
 import redisClient from "@repo/redisclient";
 import { BATCH_UPLOADER_STREAM } from "./config";
-import {SUPPORTED_MARKETS } from "@repo/common"
+import { DecimalsMap, SUPPORTED_MARKETS } from "@repo/common";
 
 const publisher = redisClient.duplicate();
 
@@ -21,24 +21,27 @@ async function main() {
   ws.onmessage = ({ data }) => {
     try {
       const payload = JSON.parse(data.toString());
-      
+
       if (!payload.p || !payload.T || !payload.s) return;
 
       let priceData = {
-        price: payload.p,
+        price: parseFloat(payload.p),
         timestamp: payload.T,
         symbol: payload.s,
       };
-      
-      const buyPrice = parseFloat(priceData.price) + parseFloat(priceData.price) * 0.005;
-      const sellPrice = parseFloat(priceData.price) - parseFloat(priceData.price) * 0.005;
-      
+
+      const buyPrice = priceData.price + priceData.price * 0.001;
+      const sellPrice = priceData.price - priceData.price * 0.001;
+
+      const decimal = DecimalsMap[payload.s.slice(0, -4)] ?? 6;
+
       let prices = {
-        buyPrice,
-        sellPrice,
+        buyPrice: Math.round(buyPrice * 10 ** decimal),
+        sellPrice: Math.round(sellPrice * 10 ** decimal),
         symbol: priceData.symbol,
-        price : payload.p,
+        price: Math.round(payload.p * 10 ** decimal),
         timestamp: payload.T,
+        decimal,
       };
 
       publisher.publish(payload.s, JSON.stringify(prices));
@@ -49,8 +52,6 @@ async function main() {
         "data",
         JSON.stringify(priceData)
       );
-
-      redisClient.set(`price:${payload.s}`, priceData.price);
     } catch (error) {
       console.error(error);
     }

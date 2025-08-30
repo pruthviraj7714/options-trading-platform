@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { SigninSchema, SignupSchema } from "@repo/common";
+import { DecimalsMap, SigninSchema, SignupSchema } from "@repo/common";
 import prisma from "@repo/db";
-import jwt from "jsonwebtoken";
+import { sign } from "jsonwebtoken";
 import { JWT_SECRET } from "../config";
+import { authMiddleware } from "../middelwares/authMiddleware";
 
 const authRouter = Router();
 
@@ -18,26 +19,26 @@ authRouter.post("/register", async (req, res) => {
       return;
     }
 
-    const { username, password } = data;
+    const { email, password } = data;
 
     const existingUser = await prisma.user.findFirst({
       where: {
-        username,
+        email,
       },
     });
 
     if (existingUser) {
       res.status(400).json({
-        message: "user with given username already exists",
+        message: "user with given email already exists",
       });
       return;
     }
 
     const user = await prisma.user.create({
       data: {
-        username,
+        email,
         password,
-        balance : 0
+        balance: 5000 * 10 ** (DecimalsMap["USDT"] ?? 2),
       },
     });
 
@@ -64,29 +65,29 @@ authRouter.post("/login", async (req, res) => {
       return;
     }
 
-    const { username, password } = data;
+    const { email, password } = data;
 
     const existingUser = await prisma.user.findFirst({
       where: {
-        username,
+        email,
       },
     });
 
     if (!existingUser) {
       res.status(400).json({
-        message: "user with given username doesn't exists",
+        message: "user with given email doesn't exists",
       });
       return;
     }
 
-    if(existingUser.password !== password) {
-      res.status(401).json({
-        message : "Incorrect Password"
+    if (existingUser.password !== password) {
+      res.status(403).json({
+        message: "Incorrect Password",
       });
       return;
     }
 
-    const token = jwt.sign(
+    const jwt = sign(
       {
         sub: existingUser.id,
       },
@@ -95,7 +96,35 @@ authRouter.post("/login", async (req, res) => {
 
     res.status(200).json({
       message: "User successfully logged in!",
-      token,
+      jwt,
+      id : existingUser.id
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+});
+
+authRouter.get("/balance", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      res.status(400).json({
+        message: "User not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      usd_balance: user.balance,
     });
   } catch (error) {
     res.status(500).json({
