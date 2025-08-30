@@ -11,35 +11,32 @@ export default async function Dashboard({
   const market = (await params).market;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="text-center py-8">
-          <h1 className="text-4xl font-bold text-slate-100 mb-2">
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto space-y-10">
+        <div className="text-center py-10">
+          <h1 className="text-5xl font-extrabold text-slate-100 mb-3 tracking-tight">
             Crypto Trading Dashboard
           </h1>
           <p className="text-slate-400 text-lg">
-            Real-time cryptocurrency charts and market data
+            Real-time cryptocurrency charts and market insights
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
           {SUPPORTED_MARKETS.map((m) => (
             <Link
+              key={m.name}
               href={`/trade/${m.symbol}`}
-              className="px-4 py-2 bg-amber-500 text-white"
+              className="group flex items-center justify-center rounded-xl border border-slate-800 bg-background transition-all p-4 shadow-md hover:shadow-lg"
             >
-              {m.name}
+              <span className="text-slate-200 font-medium group-hover:text-amber-400">
+                {m.name}
+              </span>
             </Link>
           ))}
         </div>
 
-        {/* <Card className="p-6 bg-slate-900 border-slate-700">
-          <TradingViewChart interval="1m" symbol={market} />
-        </Card> */}
-
-        <Card className="p-6 bg-slate-900 border-slate-700">
           <ChartWithInterval symbol={market} />
-        </Card>
       </div>
     </div>
   );
